@@ -84,6 +84,54 @@ tessl install github:dbt-labs/dbt-agent-skills
 
 Browse the tile on the [Tessl registry](https://tessl.io/registry/dbt-labs/dbt-agent-skills).
 
+#### dbt packages (`dbt deps`)
+
+Install skills as dbt package dependencies. This repository publishes three independent packages, so you can install any combination:
+
+| Package | Subdirectory | Contents |
+|---------|--------------|----------|
+| `dbt_agent_skills` | `skills/dbt` | Everyday dbt development skills |
+| `dbt_migration_skills` | `skills/dbt-migration` | One-off migration and upgrade skills |
+| `dbt_extras_skills` | `skills/dbt-extras` | Extra skills, such as Mermaid DAG diagrams |
+
+Add any of them to your project's `packages.yml`:
+
+```yaml
+packages:
+  # Everyday dbt skills
+  - git: "https://github.com/dbt-labs/dbt-agent-skills.git"
+    subdirectory: "skills/dbt"
+    revision: main
+
+  # Migration skills (typically a one-off)
+  - git: "https://github.com/dbt-labs/dbt-agent-skills.git"
+    subdirectory: "skills/dbt-migration"
+    revision: main
+
+  # Extra skills
+  - git: "https://github.com/dbt-labs/dbt-agent-skills.git"
+    subdirectory: "skills/dbt-extras"
+    revision: main
+```
+
+Then opt in by setting `ai_provider` in your own project's `dbt_project.yml` (it is ignored if set inside a package). Without it, `dbt deps` succeeds but installs no skills:
+
+```yaml
+flags:
+  ai_provider: claude   # Claude Code -> .claude/skills
+```
+
+Supported values include `claude`, `codex`, `cursor`, `gemini`, `openai`, and `wizard` (dbt Wizard CLI). Everything except `claude` installs to `.agents/skills`. To target several, use a list (`ai_provider: [wizard, claude]`), or pass `--ai-provider claude,codex` on the command line.
+
+```bash
+dbt deps
+```
+
+> [!TIP]
+> `revision: main` tracks the latest changes. For reproducible installs, pin `revision` to a Git tag or commit SHA instead.
+
+See the [dbt documentation on package skills](https://docs.getdbt.com/docs/dbt-ai/package-skills) for the full configuration reference, including how to disable individual skills.
+
 ### Compatible Agents
 
 These skills work with AI agents that support the [Agent Skills](https://agentskills.io/home) format.
