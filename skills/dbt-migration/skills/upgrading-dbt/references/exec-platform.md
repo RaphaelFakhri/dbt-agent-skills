@@ -48,12 +48,7 @@ All migration state lives in **a single file**, `target/dbt_migration.json`:
       "notes": "renamed + rewrote ref"
     }
   },
-  "outcome": {
-    "outcome": "completed_partial",
-    "reason": null,
-    "gate": { "parse": "passed", "compile": "passed", "test": "failed", "build": "not_run" },
-    "repair_attempts": 2
-  }
+  "outcome": { "outcome": "completed_partial", "...": "see SKILL.md, Run outcome" }
 }
 ```
 
@@ -62,12 +57,9 @@ section defines — same phase ids, same status values, same fields. Only the
 packaging differs: locally these are two script-written files, here they are two
 keys in one file you write with `edit_file`.
 
-`outcome` is Studio-only and absent until the run ends. Write it once, in Step 9
-(or just before stopping, if the run ends early), with the same values you send
-as the `outcome` and `gate_result` telemetry events. See
-[Telemetry](#telemetry-platform-only) for the legal values. `reason` is the
-`gave_up` reason, or `null`. `gate` carries one verdict per command, and
-`repair_attempts` counts the repairs.
+`outcome` is absent until the run ends. Write it once, in Step 9 (or just before
+stopping, if the run ends early). SKILL.md's **Run outcome** defines its fields
+and values. The `gate_result` and `outcome` telemetry events are filled from it.
 
 One file, because you are writing it by hand and nothing checks your work.
 Two files can disagree — a phase marked `complete` while its issues still read
@@ -91,6 +83,7 @@ memory: read it, change the one record you mean to change, write it back.
 | `request_user_input` | Every question you put to the user |
 | `get_job_details` | Read one job by id — its `execute_steps` and pinned `dbt_version`. This is how you build `migration_jobs.json` (`jobs-file`) |
 | `list_jobs` | Discover this project's jobs, scoped by the `project_id` in your context. This is the first step of `jobs-file` |
+| `record_migration_event` | Optional telemetry. Only if present in your tool list; see [Telemetry](#telemetry-platform-only) |
 
 **You do not trigger jobs.** `trigger_job_run` is not part of this skill. A job
 run executes on the deployment environment's own credentials and its own target
@@ -218,8 +211,7 @@ edit or run a job.
 **If `list_jobs` or `get_job_details` fails**, do not stop the migration. Write
 the file with whatever jobs you could read (an empty `jobs` list if none), carry
 on, and list "review job commands by hand: the job list could not be read" in the
-report as a manual action. Send `gave_up` with reason `list_jobs_failed` only if
-this failure ends the run.
+report as a manual action.
 
 The schema is **fixed and shared with the VS Code extension**, which writes the
 same file deterministically on the local path: see
@@ -296,9 +288,9 @@ order:
 2. Poll with `dbt_command_status`. Green → next command.
 3. Red → read the node-level errors in the status output, attribute the failure to
    an issue, go back to Step 5 or 6, then re-run Step 7 **from the parse check**.
-   Record what you changed in the issue's notes. A warehouse auth or timeout
-   failure that no issue explains is not something to repair. Send `gave_up`
-   (scope `gate`, reason `warehouse_error`) and stop the gate.
+   Record what you changed in the issue's notes. For a warehouse failure that no
+   issue explains (SKILL.md Step 7), send `gave_up` (scope `gate`, reason
+   `warehouse_error`).
 
 When all four are green, go on to Step 8. Whenever the gate exits, green or not,
 send `gate_result` once.
@@ -330,15 +322,14 @@ is telemetry only:
 
 - It never blocks the migration or changes any decision in it.
 - If a call errors, carry on and do not retry.
-- Never mention it to the user, in chat or in the report.
 
 Every call passes `kind` plus that kind's fields:
 
 | `kind` | When | Fields |
 |---|---|---|
 | `gave_up` | **Before** you stop retrying, or stop the run, on every stop path | `scope` ∈ `gate` · `run`, `reason`, `last_command` ∈ `deps` · `parse` · `compile` · `test` · `build` · `none`, `attempts_used`, `error_category`, `unresolved_issue_ids` |
-| `gate_result` | Exactly once, when Step 7 exits (pass or not) | `final` = `{parse, compile, test, build}`, each ∈ `passed` · `failed` · `declined` · `not_run`; `repair_attempts` (every repair across the whole gate: each parse retry plus each trip round the command loop; `0` if nothing needed repairing) |
-| `outcome` | Exactly once, at the end of Step 9, or just before stopping if the run ends early | `outcome`, `reason` (the `gave_up` reason, if any), `files_changed_count`, `flags_pinned_count` (`flag-set` issues), `manual_actions_count` (every manual action the report lists), `jobs_to_flip_count` (environments and jobs the report says to flip) |
+| `gate_result` | Exactly once, when Step 7 exits (pass or not) | `final` (the state file's `outcome.gate`) and `repair_attempts` |
+| `outcome` | Exactly once, at the end of Step 9, or just before stopping if the run ends early | The state file's `outcome` object, minus `gate` and `repair_attempts` |
 
 `error_category` ∈ `syntax` · `deprecated_config` · `macro` · `adapter` ·
 `warehouse_auth` · `warehouse_timeout` · `test_failure` · `other`.
@@ -354,11 +345,5 @@ Every call passes `kind` plus that kind's fields:
 | User declines the command checks, or the schema is not safe to build into | `gate` | `verification_declined` |
 | Session has no warehouse connection | `gate` | `no_warehouse_connection` |
 | Warehouse auth or timeout failure that no issue explains | `gate` | `warehouse_error` |
-| `list_jobs` failure that ends the run | `run` | `list_jobs_failed` |
 
-`outcome` values:
-
-- `completed`: all four gate commands `passed`, and no issue is `manual-required` or `failed`.
-- `completed_partial`: the run reached the report, but `completed` does not hold.
-- `gave_up`: a `run`-scope `gave_up` ended the run.
-- `failed`: the run reached the report, but `dbt parse` never passed.
+`outcome` values are defined in SKILL.md, **Run outcome**.

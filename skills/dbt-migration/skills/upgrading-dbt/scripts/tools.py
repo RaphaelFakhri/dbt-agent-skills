@@ -469,9 +469,9 @@ def _load_issue_metadata() -> dict[str, dict]:
     return out
 
 
-# Issue states that stop a run counting as `completed`: something the project still
-# needs a person for, or that was found and never resolved. `advisory` is shown in
-# the report but does not block.
+# Issue states that stop a run counting as `completed` (see "Run outcome" in
+# SKILL.md): something the project still needs a person for, or that was found and
+# never resolved. `advisory` is shown in the report but does not block.
 _OUTCOME_BLOCKING_STATUSES = {"manual-required", "failed", "detected"}
 
 
