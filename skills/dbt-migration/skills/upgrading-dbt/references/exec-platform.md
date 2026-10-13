@@ -48,7 +48,16 @@ All migration state lives in **a single file**, `target/dbt_migration.json`:
       "notes": "renamed + rewrote ref"
     }
   },
-  "outcome": { "outcome": "completed_partial", "...": "see SKILL.md, Run outcome" }
+  "outcome": {
+    "outcome": "completed_partial",
+    "reason": null,
+    "gate": { "parse": "passed", "compile": "passed", "test": "failed", "build": "not_run" },
+    "repair_attempts": 2,
+    "files_changed_count": 12,
+    "flags_pinned_count": 2,
+    "manual_actions_count": 3,
+    "jobs_to_flip_count": 1
+  }
 }
 ```
 
