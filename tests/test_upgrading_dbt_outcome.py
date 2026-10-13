@@ -1,4 +1,4 @@
-"""The local profile's run outcome, recorded by `tools.py report` (RFC-487).
+"""The local profile's run outcome, recorded by `tools.py report` (RFC-492).
 
 The VS Code extension sends migration telemetry from this outcome, so it has to be
 derived from the same records the report is rendered from and must never need the
@@ -180,3 +180,22 @@ def test_a_fresh_status_init_clears_a_previous_outcome(tools, tmp_path):
 
     status = json.loads((project / "target/dbt_migration_status.json").read_text())
     assert "outcome" not in status
+
+
+def test_an_issue_with_null_files_changed_is_tolerated(tools, tmp_path):
+    project = _project(
+        tmp_path,
+        tools,
+        results={"a": {"status": "fixed", "files_changed": None, "notes": ""}},
+        parse="complete",
+    )
+
+    assert _report(tools, project)["outcome"]["files_changed_count"] == 0
+
+
+def test_report_warns_when_the_parse_phase_is_unfinished(tools, tmp_path, capsys):
+    project = _project(tmp_path, tools, results={"a": _issue("fixed")}, parse="in_progress")
+
+    _report(tools, project)
+
+    assert "status-set --step parse" in capsys.readouterr().err

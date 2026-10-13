@@ -57,8 +57,8 @@ section defines — same phase ids, same status values, same fields. Only the
 packaging differs: locally these are two script-written files, here they are two
 keys in one file you write with `edit_file`.
 
-`outcome` is absent until the run ends. Write it once, in Step 9 (or just before
-stopping, if the run ends early). SKILL.md's **Run outcome** defines its fields
+`outcome` is absent until Step 7 exits. Write `gate` and `repair_attempts` then, and
+the remaining fields in Step 9 (or just before stopping, if the run ends early). SKILL.md's **Run outcome** defines its fields
 and values. The `gate_result` and `outcome` telemetry events are filled from it.
 
 One file, because you are writing it by hand and nothing checks your work.
@@ -328,7 +328,7 @@ Every call passes `kind` plus that kind's fields:
 | `kind` | When | Fields |
 |---|---|---|
 | `gave_up` | **Before** you stop retrying, or stop the run, on every stop path | `scope` ∈ `gate` · `run`, `reason`, `last_command` ∈ `deps` · `parse` · `compile` · `test` · `build` · `none`, `attempts_used`, `error_category`, `unresolved_issue_ids` |
-| `gate_result` | Exactly once, when Step 7 exits (pass or not) | `final` (the state file's `outcome.gate`) and `repair_attempts` |
+| `gate_result` | Exactly once, when Step 7 exits (pass or not), after writing `gate` and `repair_attempts` to the state file's `outcome` | `final` (that `outcome.gate`) and `repair_attempts` |
 | `outcome` | Exactly once, at the end of Step 9, or just before stopping if the run ends early | The state file's `outcome` object, minus `gate` and `repair_attempts` |
 
 `error_category` ∈ `syntax` · `deprecated_config` · `macro` · `adapter` ·
@@ -336,14 +336,14 @@ Every call passes `kind` plus that kind's fields:
 
 `gave_up` reason, one per stop path:
 
-| Stop path | `scope` | `reason` |
-|---|---|---|
-| Git still unsafe after preflight | `run` | `preflight_blocked` |
-| User declines to continue, at any point | `run` | `user_aborted` |
-| Parse repair cap (5) reached | `gate` | `parse_cap_reached` |
-| Command-loop cap (3) reached | `gate` | `command_cap_reached` |
-| User declines the command checks, or the schema is not safe to build into | `gate` | `verification_declined` |
-| Session has no warehouse connection | `gate` | `no_warehouse_connection` |
-| Warehouse auth or timeout failure that no issue explains | `gate` | `warehouse_error` |
+| Stop path | `scope` | `reason` | Final `outcome` |
+|---|---|---|---|
+| Git still unsafe after preflight | `run` | `preflight_blocked` | `gave_up` |
+| User declines to continue, at any point | `run` | `user_aborted` | `gave_up` |
+| Parse repair cap (5) reached | `gate` | `parse_cap_reached` | `completed_partial`, or `failed` if parse still fails after the revert |
+| Command-loop cap (3) reached | `gate` | `command_cap_reached` | `completed_partial` |
+| User declines the command checks, or the schema is not safe to build into | `gate` | `verification_declined` | `completed_partial` |
+| Session has no warehouse connection | `gate` | `no_warehouse_connection` | `completed_partial` |
+| Warehouse auth or timeout failure that no issue explains | `gate` | `warehouse_error` | `completed_partial` |
 
 `outcome` values are defined in SKILL.md, **Run outcome**.

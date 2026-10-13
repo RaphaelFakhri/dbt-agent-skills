@@ -491,7 +491,7 @@ def _derive_outcome(
         (s.get("status") for s in status.get("steps", []) if s.get("id") == "parse"), None
     )
     parse = {"complete": "passed", "failed": "failed"}.get(parse_step, "not_run")
-    files = {f for rec in results.values() for f in rec.get("files_changed", [])}
+    files = {f for rec in results.values() for f in rec.get("files_changed") or []}
     blocked = any(rec.get("status") in _OUTCOME_BLOCKING_STATUSES for rec in results.values())
     if parse != "passed":
         outcome = "failed"
@@ -618,6 +618,12 @@ def cmd_report(args) -> int:
     )
     if _record_outcome(project, outcome):
         print(f"recorded outcome {outcome['outcome']} -> {_status_path(project)}")
+        if outcome["gate"]["parse"] == "not_run":
+            print(
+                "warning: the parse phase is neither complete nor failed, so the outcome "
+                "is `failed`. Run `status-set --step parse`, then `report` again.",
+                file=sys.stderr,
+            )
     return 0
 
 
