@@ -8,11 +8,11 @@ Checks:
 4. Plugin manifest names and versions agree across marketplaces
 5. All non-SKILL.md files within skill folders are referenced via markdown links
 6. Every SKILL.md declares valid frontmatter
-7. Every versioned file carries the version of the latest changie release,
-   and every Claude marketplace entry is pinned to that release's tag
-8. Changes under skills/ come with a changie fragment, and CHANGELOG.md only
+7. Every versioned file carries the version of the latest changie release
+8. Every Claude marketplace entry fetches its plugin from the release branch
+9. Changes under skills/ come with a changie fragment, and CHANGELOG.md only
    changes in a release PR (vs. main branch)
-9. Every unreleased changie fragment parses and names a known component and kind
+10. Every unreleased changie fragment parses and names a known component and kind
 
 Usage:
     uv run python scripts/validate_repo.py
@@ -39,6 +39,8 @@ CHANGES_DIR = REPO_ROOT / ".changes"
 CHANGELOG_MD = REPO_ROOT / "CHANGELOG.md"
 
 REPO_GIT_URL = "https://github.com/dbt-labs/dbt-agent-skills.git"
+# release.yml moves this branch to each release tag once the tag exists.
+RELEASE_BRANCH = "stable"
 
 # Files that carry the single repo version, relative to REPO_ROOT. Must match
 # the `replacements` in .changie.yaml, which rewrite them on release.
@@ -577,16 +579,22 @@ def check_lockstep_versions() -> list[str]:
                 f"{rel} is at version {version!r} but the latest release is "
                 f"{expected!r}. Versions change only in release PRs — see RELEASING.md"
             )
-    return errors + check_marketplace_pins(f"v{expected}")
+    return errors
 
 
-def check_marketplace_pins(expected_ref: str) -> list[str]:
-    """Every Claude marketplace entry must fetch its plugin at the latest release tag.
+# --------------------------------------------------------------------------- #
+# Check 8: Claude marketplace sources
+# --------------------------------------------------------------------------- #
+
+
+def check_marketplace_sources() -> list[str]:
+    """Every Claude marketplace entry must fetch its plugin from the release branch.
 
     Claude Code reads marketplace.json from main. With a relative-path source
     it would also serve the plugin from main, unreleased changes included, and
-    under the previous version number. A `git-subdir` source pinned to the
-    release tag serves only released content.
+    under the previous version number. A `git-subdir` source on the release
+    branch serves only released content. Pinning a tag instead would point
+    main at a tag that does not exist until release.yml creates it.
     """
     if not MARKETPLACE_JSON.exists():
         return []  # check_marketplace reports this
@@ -596,8 +604,8 @@ def check_marketplace_pins(expected_ref: str) -> list[str]:
         name, source = plugin.get("name"), plugin.get("source")
         if not isinstance(source, dict) or source.get("source") != "git-subdir":
             errors.append(
-                f"{rel}: plugin '{name}' must use a 'git-subdir' source pinned to a "
-                f"release tag, not {source!r}"
+                f"{rel}: plugin '{name}' must use a 'git-subdir' source on the "
+                f"{RELEASE_BRANCH!r} branch, not {source!r}"
             )
             continue
         if source.get("url") != REPO_GIT_URL:
@@ -605,17 +613,18 @@ def check_marketplace_pins(expected_ref: str) -> list[str]:
                 f"{rel}: plugin '{name}' fetches from {source.get('url')!r}; "
                 f"expected {REPO_GIT_URL!r}"
             )
-        if source.get("ref") != expected_ref or "sha" in source:
+        if source.get("ref") != RELEASE_BRANCH or "sha" in source:
             errors.append(
-                f"{rel}: plugin '{name}' is pinned to ref {source.get('ref')!r} but the "
-                f"latest release is {expected_ref!r}. The ref changes only in release "
-                f"PRs — see RELEASING.md"
+                f"{rel}: plugin '{name}' must fetch ref {RELEASE_BRANCH!r} with no "
+                f"'sha', not ref {source.get('ref')!r}"
+                + (f" and sha {source['sha']!r}" if "sha" in source else "")
+                + " — see RELEASING.md"
             )
     return errors
 
 
 # --------------------------------------------------------------------------- #
-# Check 8: changelog entries (vs. base branch)
+# Check 9: changelog entries (vs. base branch)
 # --------------------------------------------------------------------------- #
 
 
@@ -726,7 +735,7 @@ def check_changelog_entries(diff: DiffContext) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
-# Check 9: changelog fragments are well-formed
+# Check 10: changelog fragments are well-formed
 # --------------------------------------------------------------------------- #
 
 
@@ -829,9 +838,14 @@ def main() -> int:
             "Lockstep versions",
             check_lockstep_versions,
             lambda: (
-                f"All {len(find_versioned_files())} versioned files and the Claude "
-                f"marketplace pins are at {latest_release()}, the latest release"
+                f"All {len(find_versioned_files())} versioned files are at "
+                f"{latest_release()}, the latest release"
             ),
+        ),
+        (
+            "Claude marketplace sources",
+            check_marketplace_sources,
+            lambda: f"All Claude marketplace entries fetch the {RELEASE_BRANCH!r} branch",
         ),
         (
             "Changelog entries",

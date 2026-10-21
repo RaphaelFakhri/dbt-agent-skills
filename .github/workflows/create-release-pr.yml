@@ -110,6 +110,6 @@ jobs:
           branch: release/${{ steps.changie-latest.outputs.output }}
           commit-message: "version: ${{ steps.changie-latest.outputs.output }}"
           body: |
-            Release `${{ steps.changie-latest.outputs.output }}`. Merging this PR tags the release, publishes it on GitHub and publishes the Tessl tile.
+            Release `${{ steps.changie-latest.outputs.output }}`. Merging this PR tags the release, publishes it on GitHub, releases it to the Claude marketplace (the `stable` branch) and publishes the Tessl tile.
 
             ${{ steps.notes.outputs.message }}

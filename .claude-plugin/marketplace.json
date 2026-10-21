@@ -14,7 +14,7 @@
         "source": "git-subdir",
         "url": "https://github.com/dbt-labs/dbt-agent-skills.git",
         "path": "skills/dbt",
-        "ref": "v2.0.0"
+        "ref": "stable"
       }
     },
     {
@@ -24,7 +24,7 @@
         "source": "git-subdir",
         "url": "https://github.com/dbt-labs/dbt-agent-skills.git",
         "path": "skills/dbt-migration",
-        "ref": "v2.0.0"
+        "ref": "stable"
       }
     },
     {
@@ -34,7 +34,7 @@
         "source": "git-subdir",
         "url": "https://github.com/dbt-labs/dbt-agent-skills.git",
         "path": "skills/dbt-extras",
-        "ref": "v2.0.0"
+        "ref": "stable"
       }
     }
   ]

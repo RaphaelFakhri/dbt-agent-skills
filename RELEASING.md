@@ -32,6 +32,7 @@ Feature PRs add a changie fragment (`changie new`, see [CONTRIBUTING.md](CONTRIB
 3. Review the PR. You can edit the notes in `.changes/vX.Y.Z.md` and `CHANGELOG.md` on the release branch before you merge it.
 4. Merge it. [`release.yml`](.github/workflows/release.yml) then:
    - tags the merge commit `vX.Y.Z` and creates a GitHub release from `.changes/vX.Y.Z.md`
+   - moves the `stable` branch to the tag, which releases it to Claude Code users
    - publishes the Tessl tile at that tag
 5. Do the manual marketplace step below (Cursor).
 
@@ -42,6 +43,7 @@ To cut a release by hand instead, run `changie batch <auto|vX.Y.Z> && changie me
 ### One-time setup
 
 - **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests** must be enabled for the release PR workflow.
+- Protect the `stable` branch with a ruleset that blocks deletion and force pushes, and lets only GitHub Actions push to it. `release.yml` only ever fast-forwards it.
 - A release PR opened with the default `GITHUB_TOKEN` does **not** trigger the Validate workflow. If Validate is a required check, add a `RELEASE_PR_TOKEN` secret: a GitHub App or fine-grained token with `contents: write` and `pull-requests: write`. The workflow uses it when it is present.
 
 ## Where releases go
@@ -61,22 +63,22 @@ The packages are not on [dbt Hub](https://hub.getdbt.com). Hub lists one package
 
 ### Claude Marketplace
 
-Claude Code reads `.claude-plugin/marketplace.json` from `main`, but each entry fetches its plugin with a `git-subdir` source pinned to the latest release tag:
+Claude Code reads `.claude-plugin/marketplace.json` from `main`, but each entry fetches its plugin with a `git-subdir` source from the `stable` branch:
 
 ```json
 "source": {
   "source": "git-subdir",
   "url": "https://github.com/dbt-labs/dbt-agent-skills.git",
   "path": "skills/dbt",
-  "ref": "v2.0.0"
+  "ref": "stable"
 }
 ```
 
-With a relative-path source (`"./skills/dbt"`), Claude Code would serve the plugin straight from `main`. Merged but unreleased changes would reach users, and a fresh install would get them under the previous version number. Pinning to the tag means Claude Code users only ever get released content.
+With a relative-path source (`"./skills/dbt"`), Claude Code would serve the plugin straight from `main`. Merged but unreleased changes would reach users, and a fresh install would get them under the previous version number. `stable` only ever points at a release tag, so Claude Code users only ever get released content.
 
-`changie merge` rewrites the `ref` on every release, and `scripts/validate_repo.py` fails if any entry is not a `git-subdir` source pinned to the latest release tag. Users get offered an update when a release changes the plugin's `version`. The command they use to add the marketplace stays the same.
+`release.yml` moves `stable` to the new tag once it has created it. Until then, users keep getting the previous release, and if the workflow fails they keep getting it until a re-run finishes the job. The marketplace never points at a tag that doesn't exist yet, which is why the entries use a branch rather than the tag itself. This is the release-channel setup the [Claude Code docs](https://code.claude.com/docs/en/plugins/host-marketplace#run-release-channels) describe, and the one [Dagster's skills marketplace](https://github.com/dagster-io/skills) uses.
 
-For a short time after a release PR merges, until `release.yml` has created the tag, the marketplace points at a tag that doesn't exist yet. An install during that time fails and can be retried.
+The `ref` never changes, so `marketplace.json` is not touched on release. Users get offered an update because the release changes the plugin's `version` in `plugin.json`, which is how Claude Code detects updates. `scripts/validate_repo.py` fails if any entry is not a `git-subdir` source on `stable`. The command users run to add the marketplace stays the same.
 
 To test unreleased plugin changes locally, load the plugin directly. Adding this repo as a marketplace installs the released version, not your working copy:
 

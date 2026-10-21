@@ -572,14 +572,9 @@ def test_diff_context_reports_an_undeterminable_branch(vr, stub_git):
 
 @pytest.fixture
 def lockstep_repo(vr, tmp_path, monkeypatch):
-    """A synthetic repo with every kind of versioned file, all at one version.
-
-    It has no marketplace.json, so the marketplace pins (tested on their own
-    below) add nothing here.
-    """
+    """A synthetic repo with every kind of versioned file, all at one version."""
     monkeypatch.setattr(vr, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(vr, "CHANGES_DIR", tmp_path / ".changes")
-    monkeypatch.setattr(vr, "MARKETPLACE_JSON", tmp_path / ".claude-plugin" / "marketplace.json")
     (tmp_path / ".changes").mkdir()
     write_manifest(vr, tmp_path / "skills" / "dbt", "claude", "dbt", "2.0.0")
     write_manifest(vr, tmp_path / "skills" / "dbt", "cursor", "dbt", "2.0.0")
@@ -666,12 +661,12 @@ def test_lockstep_requires_a_release(vr, lockstep_repo):
 
 
 # --------------------------------------------------------------------------- #
-# check_marketplace_pins
+# check_marketplace_sources
 # --------------------------------------------------------------------------- #
 
 
 @pytest.fixture
-def pins_repo(vr, tmp_path, monkeypatch):
+def sources_repo(vr, tmp_path, monkeypatch):
     claude_json = tmp_path / ".claude-plugin" / "marketplace.json"
     claude_json.parent.mkdir()
     monkeypatch.setattr(vr, "REPO_ROOT", tmp_path)
@@ -687,7 +682,7 @@ def pins_repo(vr, tmp_path, monkeypatch):
     return write
 
 
-def pinned(ref="v2.0.0", **overrides):
+def on_stable(ref="stable", **overrides):
     return {
         "source": "git-subdir",
         "url": "https://github.com/dbt-labs/dbt-agent-skills.git",
@@ -697,40 +692,42 @@ def pinned(ref="v2.0.0", **overrides):
     }
 
 
-def test_pins_accept_entries_at_the_release_tag(vr, pins_repo):
-    pins_repo(pinned(), pinned(path="skills/dbt-extras"))
-    assert vr.check_marketplace_pins("v2.0.0") == []
+def test_sources_accept_entries_on_the_release_branch(vr, sources_repo):
+    sources_repo(on_stable(), on_stable(path="skills/dbt-extras"))
+    assert vr.check_marketplace_sources() == []
 
 
-def test_pins_reject_a_relative_path_source(vr, pins_repo):
+def test_sources_reject_a_relative_path_source(vr, sources_repo):
     """A relative path serves main, unreleased changes included."""
-    pins_repo("./skills/dbt")
-    errors = vr.check_marketplace_pins("v2.0.0")
+    sources_repo("./skills/dbt")
+    errors = vr.check_marketplace_sources()
     assert len(errors) == 1 and "must use a 'git-subdir' source" in errors[0]
 
 
-def test_pins_reject_a_stale_ref(vr, pins_repo):
-    """A ref the .changie.yaml replacement missed on release."""
-    pins_repo(pinned(ref="v2.0.0"))
-    errors = vr.check_marketplace_pins("v2.1.0")
-    assert len(errors) == 1 and "pinned to ref 'v2.0.0'" in errors[0]
+@pytest.mark.parametrize("ref", ["main", "v2.0.0", None])
+def test_sources_reject_any_other_ref(vr, sources_repo, ref):
+    """main serves unreleased changes; a tag on main can name a tag not yet created."""
+    sources_repo(on_stable(ref=ref))
+    errors = vr.check_marketplace_sources()
+    assert len(errors) == 1 and f"not ref {ref!r}" in errors[0]
 
 
-def test_pins_reject_a_branch_ref(vr, pins_repo):
-    pins_repo(pinned(ref="main"))
-    assert len(vr.check_marketplace_pins("v2.0.0")) == 1
-
-
-def test_pins_reject_a_sha_override(vr, pins_repo):
+def test_sources_reject_a_sha_override(vr, sources_repo):
     """Claude Code checks out `sha` over `ref`, so a sha would silently win."""
-    pins_repo(pinned(sha="a" * 40))
-    assert len(vr.check_marketplace_pins("v2.0.0")) == 1
+    sources_repo(on_stable(sha="a" * 40))
+    errors = vr.check_marketplace_sources()
+    assert len(errors) == 1 and "and sha 'aaaa" in errors[0]
 
 
-def test_pins_reject_another_repository(vr, pins_repo):
-    pins_repo(pinned(url="https://github.com/someone/fork.git"))
-    errors = vr.check_marketplace_pins("v2.0.0")
+def test_sources_reject_another_repository(vr, sources_repo):
+    sources_repo(on_stable(url="https://github.com/someone/fork.git"))
+    errors = vr.check_marketplace_sources()
     assert len(errors) == 1 and "fork.git" in errors[0]
+
+
+def test_sources_skip_a_missing_marketplace(vr, tmp_path, monkeypatch):
+    monkeypatch.setattr(vr, "MARKETPLACE_JSON", tmp_path / "marketplace.json")
+    assert vr.check_marketplace_sources() == []
 
 
 @pytest.mark.parametrize(
@@ -918,4 +915,5 @@ def test_real_repo_passes_layout_checks(vr):
     assert vr.check_file_references(skills) == []
     assert vr.check_frontmatter(skills) == []
     assert vr.check_lockstep_versions() == []
+    assert vr.check_marketplace_sources() == []
     assert vr.check_changelog_fragments() == []
