@@ -38,7 +38,6 @@ CHANGIE_YAML = REPO_ROOT / ".changie.yaml"
 CHANGES_DIR = REPO_ROOT / ".changes"
 CHANGELOG_MD = REPO_ROOT / "CHANGELOG.md"
 
-# Claude marketplace entries fetch each plugin from this repo at a release tag.
 REPO_GIT_URL = "https://github.com/dbt-labs/dbt-agent-skills.git"
 
 # Files that carry the single repo version, relative to REPO_ROOT. Must match
