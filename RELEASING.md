@@ -54,7 +54,7 @@ Each release is a tag (`vX.Y.Z`) and a GitHub release. The dbt packages can be p
 packages:
   - git: "https://github.com/dbt-labs/dbt-agent-skills.git"
     subdirectory: "skills/dbt"
-    revision: v2.0.0
+    revision: vX.Y.Z
 ```
 
 The packages are not on [dbt Hub](https://hub.getdbt.com). Hub lists one package per repository and reads `dbt_project.yml` from the repo root, while ours live in subdirectories.

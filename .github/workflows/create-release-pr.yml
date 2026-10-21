@@ -52,6 +52,16 @@ jobs:
             echo "arg=$BUMP" >> "$GITHUB_OUTPUT"
           fi
 
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+
+      # changie files a fragment with no component under an empty heading
+      # rather than failing, and batching deletes the fragments, so they are
+      # checked here while they still exist.
+      - name: Check the unreleased fragments
+        run: uv run python scripts/validate_repo.py
+
       - name: Batch unreleased changes
         uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23
         with:
@@ -70,10 +80,6 @@ jobs:
         with:
           version: latest
           args: latest
-
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # astral-sh/setup-uv@v10.0.1
-        with:
-          enable-cache: true
 
       # Fails the run, rather than opening a broken PR, if a replacement in
       # .changie.yaml missed a versioned file.
