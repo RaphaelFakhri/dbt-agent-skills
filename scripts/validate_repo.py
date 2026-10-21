@@ -39,7 +39,6 @@ CHANGES_DIR = REPO_ROOT / ".changes"
 CHANGELOG_MD = REPO_ROOT / "CHANGELOG.md"
 
 REPO_GIT_URL = "https://github.com/dbt-labs/dbt-agent-skills.git"
-# release.yml moves this branch to each release tag once the tag exists.
 RELEASE_BRANCH = "stable"
 
 # Files that carry the single repo version, relative to REPO_ROOT. Must match

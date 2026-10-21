@@ -2,8 +2,7 @@ name: Release
 
 # Publishes a release once its release PR (see create-release-pr.yml) lands on
 # main: tags the merge commit, creates the GitHub release from the changie
-# notes, moves the `stable` branch (which the Claude marketplace serves) to the
-# tag, and publishes the Tessl tile at that tag.
+# notes, and publishes the Tessl tile at that tag.
 #
 # The trigger is "the latest changie version has no tag yet" rather than a
 # commit-message prefix, so a release cut by hand, or a run that failed
@@ -77,10 +76,8 @@ jobs:
             --title "dbt-agent-skills $VERSION" \
             --notes-file ".changes/$VERSION.md"
 
-      # The Claude marketplace fetches every plugin from `stable`, so users get
-      # the release only once its tag exists. Runs even when the tag already
-      # existed, so re-running the workflow finishes a release that failed
-      # after tagging. A plain push only fast-forwards, so it never rewinds.
+      # Not gated on check-tag, so a re-run finishes a release that failed
+      # after tagging.
       - name: Move the stable branch to the release
         env:
           VERSION: ${{ steps.changie-latest.outputs.output }}
