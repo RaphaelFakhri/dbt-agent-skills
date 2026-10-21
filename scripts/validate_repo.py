@@ -257,7 +257,7 @@ def check_manifest_coherence(plugin_dirs: dict[str, Path]) -> list[str]:
             detail = ", ".join(f"{m}={v}" for m, v in sorted(versions.items()))
             errors.append(
                 f"Plugin '{folder}' has mismatched versions across manifests "
-                f"({detail}) — bump every manifest listed in RELEASING.md together"
+                f"({detail}) — versions change only in release PRs, see RELEASING.md"
             )
 
     return errors
