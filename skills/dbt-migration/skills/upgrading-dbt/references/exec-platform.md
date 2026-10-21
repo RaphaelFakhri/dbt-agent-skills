@@ -349,6 +349,27 @@ For example, a gate that stopped at `test`:
                   "build": "not_run", "repair_attempts": 2},
     )
 
+An `Outcome` event passes the `outcome` object's fields flat in `event_args`, not
+nested under an `outcome` key. Leave out `gate` and `repair_attempts`, which went
+in the `GateResult` event. Its first field is itself named `outcome`:
+
+    record_telemetry(
+      type="Outcome",
+      event_args={"outcome": "completed_partial", "reason": None,
+                  "files_changed_count": 12, "flags_pinned_count": 2,
+                  "manual_actions_count": 3, "jobs_to_flip_count": 1},
+    )
+
+A `GaveUp` event, for a gate-scope stop at the command cap:
+
+    record_telemetry(
+      type="GaveUp",
+      event_args={"scope": "gate", "reason": "command_cap_reached",
+                  "last_command": "build", "attempts_used": 3,
+                  "error_category": "test_failure",
+                  "unresolved_issue_ids": ["1_9_004"]},
+    )
+
 `error_category` ∈ `syntax` · `deprecated_config` · `macro` · `adapter` ·
 `warehouse_auth` · `warehouse_timeout` · `test_failure` · `other`.
 

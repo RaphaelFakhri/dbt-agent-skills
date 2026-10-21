@@ -572,9 +572,10 @@ says so.
 ### Run outcome — `outcome`
 
 Optional. On the platform, `gate` and `repair_attempts` are written when Step 7
-exits (so a `GateResult` event can be recorded from them) and the rest is filled in when the
-run ends: at Step 9, or when a platform run stops early. The local profile writes
-it all at once, in `report`. It lives at the top level of the state file, next to `steps`:
+exits (so a `GateResult` event can be recorded from them) and the rest is filled
+in when the run ends: at Step 9, or when a platform run stops early. The local
+profile writes it all at once, in `report`. It lives at the top level of the
+state file, next to `steps`:
 
 - local: `target/dbt_migration_status.json`, written by the `report` operation
 - platform: `target/dbt_migration.json`, next to `steps` and `issues`, written by you
@@ -600,9 +601,11 @@ it all at once, in `report`. It lives at the top level of the state file, next t
     For example a gate check was `declined`, `failed` or did not run, or an issue
     is still outstanding.
   - `failed`: the run reached the report, but `parse` never passed.
-  - `gave_up`: a `run`-scope `GaveUp` event ended the run. Local runs never produce this.
-    A `gate`-scope `GaveUp` event does not end the run: it carries on to the report, and
-    the outcome is `failed` if `parse` never passed, else `completed_partial`.
+  - `gave_up`: a `run`-scope `GaveUp` event ended the run. Local runs never
+    produce this. A `gate`-scope `GaveUp` event does not end the run: it carries
+    on to the report, and the outcome is `failed` if `parse` never passed, else
+    `completed_partial`. (`GaveUp` is the telemetry event, `gave_up` is the
+    `outcome` value.)
 - `reason`: the `GaveUp` event's reason, or `null`.
 - `gate`: one verdict per command, each `passed`, `failed`, `declined` or `not_run`.
 - `repair_attempts`: each parse retry plus each trip round the command loop; `0` if
