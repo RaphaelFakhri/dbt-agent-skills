@@ -8,7 +8,8 @@ Checks:
 4. Plugin manifest names and versions agree across marketplaces
 5. All non-SKILL.md files within skill folders are referenced via markdown links
 6. Every SKILL.md declares valid frontmatter
-7. Every versioned file carries the version of the latest changie release
+7. Every versioned file carries the version of the latest changie release,
+   and every Claude marketplace entry is pinned to that release's tag
 8. Changes under skills/ come with a changie fragment, and CHANGELOG.md only
    changes in a release PR (vs. main branch)
 9. Every unreleased changie fragment parses and names a known component and kind
@@ -36,6 +37,9 @@ SKILLS_DIR = REPO_ROOT / "skills"
 CHANGIE_YAML = REPO_ROOT / ".changie.yaml"
 CHANGES_DIR = REPO_ROOT / ".changes"
 CHANGELOG_MD = REPO_ROOT / "CHANGELOG.md"
+
+# Claude marketplace entries fetch each plugin from this repo at a release tag.
+REPO_GIT_URL = "https://github.com/dbt-labs/dbt-agent-skills.git"
 
 # Files that carry the single repo version, relative to REPO_ROOT. Must match
 # the `replacements` in .changie.yaml, which rewrite them on release.
@@ -85,14 +89,23 @@ def find_all_plugin_dirs() -> dict[str, Path]:
     return plugins
 
 
+def entry_folder(source: object) -> str:
+    """The plugin folder an entry's `source` points at, as a name under skills/.
+
+    Handles a relative path ("./skills/dbt", used by Cursor) and a
+    `git-subdir` object ({"path": "skills/dbt", ...}, used by Claude).
+    """
+    if isinstance(source, dict):
+        source = source.get("path", "")
+    return Path(source if isinstance(source, str) else "").name
+
+
 def read_marketplace_entries(path: Path) -> dict[str, str]:
     """Return plugin folder name -> declared entry name from a marketplace file."""
     marketplace = json.loads(path.read_text())
     entries: dict[str, str] = {}
     for plugin in marketplace.get("plugins", []):
-        # "./skills/dbt" -> "dbt"
-        folder = Path(plugin.get("source", "")).name
-        entries[folder] = plugin.get("name", "")
+        entries[entry_folder(plugin.get("source", ""))] = plugin.get("name", "")
     return entries
 
 
@@ -565,6 +578,40 @@ def check_lockstep_versions() -> list[str]:
                 f"{rel} is at version {version!r} but the latest release is "
                 f"{expected!r}. Versions change only in release PRs — see RELEASING.md"
             )
+    return errors + check_marketplace_pins(f"v{expected}")
+
+
+def check_marketplace_pins(expected_ref: str) -> list[str]:
+    """Every Claude marketplace entry must fetch its plugin at the latest release tag.
+
+    Claude Code reads marketplace.json from main. With a relative-path source
+    it would also serve the plugin from main, unreleased changes included, and
+    under the previous version number. A `git-subdir` source pinned to the
+    release tag serves only released content.
+    """
+    if not MARKETPLACE_JSON.exists():
+        return []  # check_marketplace reports this
+    rel = MARKETPLACE_JSON.relative_to(REPO_ROOT)
+    errors: list[str] = []
+    for plugin in json.loads(MARKETPLACE_JSON.read_text()).get("plugins", []):
+        name, source = plugin.get("name"), plugin.get("source")
+        if not isinstance(source, dict) or source.get("source") != "git-subdir":
+            errors.append(
+                f"{rel}: plugin '{name}' must use a 'git-subdir' source pinned to a "
+                f"release tag, not {source!r}"
+            )
+            continue
+        if source.get("url") != REPO_GIT_URL:
+            errors.append(
+                f"{rel}: plugin '{name}' fetches from {source.get('url')!r}; "
+                f"expected {REPO_GIT_URL!r}"
+            )
+        if source.get("ref") != expected_ref or "sha" in source:
+            errors.append(
+                f"{rel}: plugin '{name}' is pinned to ref {source.get('ref')!r} but the "
+                f"latest release is {expected_ref!r}. The ref changes only in release "
+                f"PRs — see RELEASING.md"
+            )
     return errors
 
 
@@ -783,8 +830,8 @@ def main() -> int:
             "Lockstep versions",
             check_lockstep_versions,
             lambda: (
-                f"All {len(find_versioned_files())} versioned files are at "
-                f"{latest_release()}, the latest release"
+                f"All {len(find_versioned_files())} versioned files and the Claude "
+                f"marketplace pins are at {latest_release()}, the latest release"
             ),
         ),
         (

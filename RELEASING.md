@@ -61,9 +61,28 @@ The packages are not on [dbt Hub](https://hub.getdbt.com). Hub lists one package
 
 ### Claude Marketplace
 
-The Claude marketplace reads `.claude-plugin/marketplace.json` from `main`. Claude Code offers users an update when a plugin's `version` changes, so users get updates when a release PR merges.
+Claude Code reads `.claude-plugin/marketplace.json` from `main`, but each entry fetches its plugin with a `git-subdir` source pinned to the latest release tag:
 
-The marketplace points at the plugin directories on `main`, not at a tag. That means a new install between releases gets the unreleased content under the previous version number.
+```json
+"source": {
+  "source": "git-subdir",
+  "url": "https://github.com/dbt-labs/dbt-agent-skills.git",
+  "path": "skills/dbt",
+  "ref": "v2.0.0"
+}
+```
+
+With a relative-path source (`"./skills/dbt"`), Claude Code would serve the plugin straight from `main`. Merged but unreleased changes would reach users, and a fresh install would get them under the previous version number. Pinning to the tag means Claude Code users only ever get released content.
+
+`changie merge` rewrites the `ref` on every release, and `scripts/validate_repo.py` fails if any entry is not a `git-subdir` source pinned to the latest release tag. Users get offered an update when a release changes the plugin's `version`. The command they use to add the marketplace stays the same.
+
+For a short time after a release PR merges, until `release.yml` has created the tag, the marketplace points at a tag that doesn't exist yet. An install during that time fails and can be retried.
+
+To test unreleased plugin changes locally, load the plugin directly. Adding this repo as a marketplace installs the released version, not your working copy:
+
+```bash
+claude --plugin-dir skills/dbt
+```
 
 ### Cursor Plugin Marketplace
 

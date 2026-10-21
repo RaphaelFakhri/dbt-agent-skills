@@ -114,6 +114,8 @@ changie prompts for:
 
 Commit the generated `.changes/unreleased/*.yaml` file with your change.
 
+To try your changes in Claude Code before they are released, run `claude --plugin-dir skills/<plugin>`. The marketplace serves the latest release, not `main`.
+
 **Do not** bump any `version` field or edit `CHANGELOG.md` by hand. Every versioned file (plugin manifests, `tile.json`, `dbt_project.yml`) carries the same repo version, which changes only in a release PR. CI rejects a hand bump.
 
 ## Style Guide

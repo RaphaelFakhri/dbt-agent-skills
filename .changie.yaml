@@ -70,6 +70,11 @@ replacements:
   - path: tile.json
     find: '^  "version": ".*",$'
     replace: '  "version": "{{.VersionNoPrefix}}",'
+  # Claude Code fetches each plugin at this tag rather than from main, so
+  # unreleased changes stay invisible to marketplace users (see RELEASING.md).
+  - path: .claude-plugin/marketplace.json
+    find: '^        "ref": "v[0-9.]+"$'
+    replace: '        "ref": "{{.Version}}"'
   # Keeps the `dbt deps` install snippet pinned to the newest release tag.
   - path: README.md
     find: '^    revision: v[0-9.]+$'
